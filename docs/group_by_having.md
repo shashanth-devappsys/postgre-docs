@@ -1,81 +1,173 @@
 ### **GROUP BY and HAVING**
 
-The **`GROUP BY`** clause is used to arrange identical data into groups. It aggregates rows that have the same values into summary rows, like a count, average, or sum for each group.
+The **`GROUP BY`** and **`HAVING`** clauses are used to summarize and filter data in a way that goes beyond simple row-by-row operations. They are always used with **aggregate functions** like `SUM()`, `COUNT()`, `AVG()`, `MIN()`, and `MAX()`.
 
-The **`HAVING`** clause is used to filter those aggregated groups, similar to how `WHERE` filters individual rows. You use `HAVING` to apply conditions to the results of a `GROUP BY` operation.
+-----
 
-Here's a practical example using your `t_dlpdata` table to find the average energy consumption for each meter.
+### The `GROUP BY` Command
 
-**Example: Average Reading Per Meter**
-This query groups all readings by `meter_id` and calculates the average `kwh_reading` for each group.
+The **`GROUP BY`** clause organizes rows with identical values into summary groups. It's the first step in performing calculations on these groups, rather than on individual records.
+
+**Example 1: Find the total energy consumption for each meter.**
+
+This is the most direct use of `GROUP BY`. By grouping by `meter_id`, you can calculate the total `kwh_reading` for each specific meter from the `t_dlpdata` table.
 
 ```sql
 SELECT
     meter_id,
-    AVG(kwh_reading) AS average_kwh
+    SUM(kwh_reading) AS total_kwh
 FROM
     t_dlpdata
 GROUP BY
     meter_id;
 ```
 
-**Example: Filtering Groups with `HAVING`**
-This query builds on the previous one. It first groups the data by `meter_id`, then uses `HAVING` to only show the meters where the average reading is greater than 10 kWh.
+This query returns a single row for each unique `meter_id`, showing its total consumption.
+
+**Example 2: Find the total energy consumption for each customer.**
+
+To get a summary for each customer instead of each meter, you need to join the `t_dlpdata` and `m_meterinfo` tables, and then group by `customer_id`.
 
 ```sql
 SELECT
-    meter_id,
-    AVG(kwh_reading) AS average_kwh
+    mi.customer_id,
+    SUM(dlp.kwh_reading) AS total_kwh
 FROM
-    t_dlpdata
+    t_dlpdata AS dlp
+JOIN
+    m_meterinfo AS mi ON dlp.meter_id = mi.meter_id
 GROUP BY
-    meter_id
-HAVING
-    AVG(kwh_reading) > 10;
+    mi.customer_id;
 ```
+
+This query first links meter readings to their respective customers, then groups the results by `customer_id` to calculate each customer's total consumption.
+
+-----
+
+### The `HAVING` Command
+
+The **`HAVING`** clause is used to filter the groups created by `GROUP BY`. While `WHERE` filters individual rows *before* grouping, `HAVING` filters the summary rows *after* the grouping and aggregation have occurred. You can't use an aggregate function directly in a `WHERE` clause.
+
+**Example: Find customers with high energy consumption.**
+
+Building on the previous example, what if you only want to see the customers whose total energy consumption is over a certain amount? This is a perfect use case for `HAVING`.
+
+```sql
+SELECT
+    mi.customer_id,
+    SUM(dlp.kwh_reading) AS total_kwh
+FROM
+    t_dlpdata AS dlp
+JOIN
+    m_meterinfo AS mi ON dlp.meter_id = mi.meter_id
+GROUP BY
+    mi.customer_id
+HAVING
+    SUM(dlp.kwh_reading) > 50000;
+```
+
+This query first calculates the total consumption for every customer, and then the `HAVING` clause filters the results to only include customers whose total consumption (`SUM(dlp.kwh_reading)`) is greater than 50,000 kWh.
 
 -----
 
 ### **Window Functions**
 
-Window functions perform calculations across a set of table rows that are related to the current row. Unlike `GROUP BY`, a window function doesn't collapse the rows; it simply adds a new column with the calculated value to each row in the result set. The key is the **`OVER()`** clause, which defines the "window" or set of rows the function operates on.
+**Window functions** in PostgreSQL perform calculations across a set of table rows that are related to the current row. Unlike aggregate functions (`SUM`, `COUNT`) which collapse rows into a single summary row, window functions retain the individual rows in the output. They "look through" a specified "window" of data to perform their calculations.
 
-#### **`ROW_NUMBER()`**
+The syntax for a window function is `function_name() OVER ([PARTITION BY ...] [ORDER BY ...])`.
 
-**`ROW_NUMBER()`** assigns a unique, sequential integer to each row within a window, starting from 1. This is perfect for ranking or numbering rows based on a specific order.
+  * **`PARTITION BY`**: This clause divides the rows into smaller groups or partitions, similar to how `GROUP BY` works. The window function is then applied to each partition independently.
+  * **`ORDER BY`**: This clause defines the order of the rows within each partition. This is crucial for functions like `ROW_NUMBER()` and for calculating running totals.
 
-**Example: Rank Meters by Join Date**
-This query assigns a rank to each customer based on their `join_date`, with the newest customers ranked first.
+-----
 
-```sql
-SELECT
-    customer_id,
-    first_name,
-    last_name,
-    join_date,
-    ROW_NUMBER() OVER (ORDER BY join_date DESC) AS rank
-FROM
-    m_customerinfo;
-```
+### `ROW_NUMBER()`
 
-#### **`AVG() OVER()`**
+The **`ROW_NUMBER()`** window function assigns a unique, sequential integer to each row within its partition, starting from 1. The numbering is based on the `ORDER BY` clause. This is incredibly useful for ranking or finding the "Nth" row.
 
-You can use aggregate functions like `AVG`, `SUM`, `COUNT`, and `MIN`/`MAX` as window functions. `AVG() OVER()` calculates the average of a specific column for all rows in the defined window.
+**Example: Find the most recent meter reading for each meter.**
 
-**Example: Compare Reading to Average**
-This query is a great way to compare each individual `kwh_reading` against the overall average reading for a specific meter. It calculates the average reading for each `meter_id` and displays it on every row for that meter, without collapsing the data.
+We can use `ROW_NUMBER()` to assign a rank to each meter reading based on its timestamp, partitioned by `meter_id`. The row with rank 1 will be the most recent reading for each meter.
 
 ```sql
 SELECT
-    reading_timestamp,
+    reading_id,
     meter_id,
+    reading_timestamp,
     kwh_reading,
-    AVG(kwh_reading) OVER (PARTITION BY meter_id) AS average_kwh_for_meter
+    ROW_NUMBER() OVER(PARTITION BY meter_id ORDER BY reading_timestamp DESC) as rn
 FROM
     t_dlpdata;
 ```
 
-  * `PARTITION BY meter_id` divides the rows into groups (or partitions) based on the `meter_id`, so the average is calculated separately for each meter.
+To get only the most recent reading, you can wrap this query in a subquery:
+
+```sql
+SELECT
+    reading_id,
+    meter_id,
+    reading_timestamp,
+    kwh_reading
+FROM (
+    SELECT
+        reading_id,
+        meter_id,
+        reading_timestamp,
+        kwh_reading,
+        ROW_NUMBER() OVER(PARTITION BY meter_id ORDER BY reading_timestamp DESC) as rn
+    FROM
+        t_dlpdata
+) AS ranked_readings
+WHERE
+    rn = 1;
+```
+
+-----
+
+### `AVG() OVER()`
+
+You can use aggregate functions like `AVG()`, `SUM()`, and `COUNT()` as window functions by adding the `OVER` clause. This allows you to calculate an average, total, or count for a group of rows without collapsing the result set.
+
+**Example: Compare each meter's reading to its average.**
+
+This query uses `AVG()` as a window function to calculate the average `kwh_reading` for each `meter_id`. The result includes the individual reading and the overall average for that meter on the same row, which is not possible with a simple `GROUP BY`.
+
+```sql
+SELECT
+    reading_id,
+    meter_id,
+    reading_timestamp,
+    kwh_reading,
+    AVG(kwh_reading) OVER(PARTITION BY meter_id) AS average_kwh_for_meter
+FROM
+    t_dlpdata;
+```
+
+This is especially useful for quickly identifying readings that are significantly higher or lower than the average for that specific meter.
+
+**Example 2: Find the running total of a customer's consumption.**
+
+You can use `AVG() OVER()` without a `PARTITION BY` clause to get an average across the entire dataset. However, a more powerful application is using `ORDER BY` within a partition to calculate running totals or moving averages.
+
+```sql
+SELECT
+    dlp.reading_id,
+    mi.customer_id,
+    dlp.reading_timestamp,
+    dlp.kwh_reading,
+    SUM(dlp.kwh_reading) OVER (
+        PARTITION BY mi.customer_id
+        ORDER BY dlp.reading_timestamp
+    ) AS running_total_kwh
+FROM
+    t_dlpdata AS dlp
+JOIN
+    m_meterinfo AS mi ON dlp.meter_id = mi.meter_id
+ORDER BY
+    mi.customer_id, dlp.reading_timestamp;
+```
+
+This query first partitions the data by `customer_id` and then, for each customer, calculates a running `SUM` of `kwh_reading`s ordered by `reading_timestamp`. This lets you see how a customer's total consumption grows over time.
 
 -----
 
