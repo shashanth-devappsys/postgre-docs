@@ -1,6 +1,6 @@
 1. [Database Design & Data Modeling](docs/db_design_data_modeling.md)
 2. [Basic SQL CRUD Operations](docs/basic_crud_operations.md)
-3. [Bulk Data Loading & File Handling]()
+3. [Bulk Data Loading & File Handling](docs/bulk_data_loading_and_file.md)
 4. [Aggregations & Reporting Queries](docs/group_by_having.md)
 5. [Advanced SQL Techniques](docs/cte_fulltext_search.md)
 6. [Performance Optimization & Maintenance](docs/explain_analyze.md)
