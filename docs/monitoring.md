@@ -440,4 +440,3 @@ SELECT hello_pg(); -- "hello from C extension"
 4. **Partition big facts with `pg_partman`**, add retention, schedule `run_maintenance()`.
 5. **Codify local utilities as an extension**, so your cluster setup is reproducible and versioned.
 
-If you want, I can tailor the `pgwatch2` dashboards and `pg_partman` config to your smart-meter workload shape (ingest rate, retention targets, and query patterns), or script a one-shot bootstrap that enables everything end-to-end.
