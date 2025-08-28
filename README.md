@@ -8,4 +8,4 @@
 8. [Security, Permissions & Auditing](docs/security_permission_audit.md)
 9. [PL/pgSQL & Server-Side Programming](docs/server_side_progamming.md)
 10. [Backup, Restore & High Availability](docs/backup_restore.md)
-11. [Monitoring & Extensions Ecosystem]()
+11. [Monitoring & Extensions Ecosystem](docs/monitoring.md)
