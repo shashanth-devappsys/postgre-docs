@@ -3,7 +3,7 @@
 3. [Bulk Data Loading & File Handling]()
 4. [Aggregations & Reporting Queries](docs/group_by_having.md)
 5. [Advanced SQL Techniques](docs/cte_fulltext_search.md)
-6. [Performance Optimization & Maintenance]()
+6. [Performance Optimization & Maintenance](docs/explain_analyze.md)
 7. [ADO.NET Integration]()
 8. [Security, Permissions & Auditing](docs/security_permission_audit.md)
 9. [PL/pgSQL & Server-Side Programming](docs/server_side_progamming.md)
